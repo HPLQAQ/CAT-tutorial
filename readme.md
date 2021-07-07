@@ -87,7 +87,30 @@ CAT目前仅支持GPU训练，Cuda为使用NVIDIA显卡训练DNN（Deep Neural N
 
 ### Markdown
 
+Markdown 是一种轻量级标记语言，易于进行文档的编写。
+
+- 菜鸟Markdown[教程][12]
+- Markdown简明语法[教程][13]
+
+推荐使用编辑器：
+
+- vscode + extensions: Markdown All in One, Markdown Preview Enhanced 优点：方便自定义，可以直接配合git插件使用
+- typora 优点：所见即所得（推荐）
+
+### IDE
+
+- pycharm 优点：集成功能丰富（推荐）
+- vscode 优点：自定义强大
+
 ### Others
+
+copytranslator 阅读英文文献便捷查词
+
+dolphin 方便的图形界面文件浏览器
+
+chrome 比firefox更好用（雾）的浏览器
+
+P3X-OneNote Linux下的非官方开源OneNote软件
 
 ## How to Solve Problems
 
@@ -104,6 +127,5 @@ CAT目前仅支持GPU训练，Cuda为使用NVIDIA显卡训练DNN（Deep Neural N
 [9]:./resources/git-cheatsheet-ryf.pdf	"Git常用命令清单，阮一峰"
 [10]:https://github.com/numbbbbb/Git-Tutorial-By-liaoxuefeng	"Git入门教程，廖雪峰"
 [11]:https://git-scm.com/book/zh/v2	"Gitbook"
-
-
-
+[12]:https://www.runoob.com/markdown/md-tutorial.html	"菜鸟教程，Markdown教程"
+[13]:https://github.com/Melo618/Simple-Markdown-Guide	"Markdown简明语法教程"
