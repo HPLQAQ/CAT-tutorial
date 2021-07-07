@@ -1,4 +1,4 @@
-# CAT环境配置
+# CAT入门教程
 
 ## System
 
@@ -20,11 +20,15 @@ Windows下安装双系统：[教程][2]
 
 ### Linux使用
 
-入门推荐阅读：《[快乐的Linux命令行][4]》
+入门推荐阅读：
 
-​							原版：《[*The Linux Command Line*][5]》
+- 《[快乐的Linux命令行][4]》
+- 原版：《[*The Linux Command Line*][5]》
 
-可以参考的网站：[菜鸟Linux教程][6] [Linux Tutorial][7]
+可以参考的网站：
+
+- [菜鸟Linux教程][6]
+- [Linux Tutorial][7]
 
 > P.S：kaldi使用shell编写，对shell的掌握和Linux终端的梳理使用对提高效率很重要。
 
@@ -55,7 +59,7 @@ CAT目前仅支持GPU训练，Cuda为使用NVIDIA显卡训练DNN（Deep Neural N
 
 ### 下载
 
-
+下载前确认驱动版本号
 
 ## Kaldi
 
@@ -69,15 +73,19 @@ CAT目前仅支持GPU训练，Cuda为使用NVIDIA显卡训练DNN（Deep Neural N
 
 免费开源的版本控制系统，[官网][8]
 
-入门教程：廖雪峰的Git[入门教程][10]
+入门教程：
 
-命令清单：阮一峰的Git[命令清单][9]
+- 廖雪峰的Git[入门教程][10]（较为简单）
+- [Gitbook][11]（更加详细）
 
+命令清单：
 
+- 阮一峰的Git[命令清单][9]
+- git --help
 
-### VSCode
+![Git workflow by 阮一峰](./pictures/git-workflow-ryf.png)
 
-### Typora
+### Markdown
 
 ### Others
 
@@ -89,13 +97,15 @@ CAT目前仅支持GPU训练，Cuda为使用NVIDIA显卡训练DNN（Deep Neural N
 
 [1]:https://ubuntu.com/download/desktop	"Ubuntu官网下载"
 [2]:https://zhuanlan.zhihu.com/p/101307629	"Ubuntu双系统安装教程，知乎"
-[3]:https://wangdoc.com/ssh/index.html	"SSH使用教程，阮一峰"
-
+[3]:https://github.com/wangdoc/ssh-tutorial	"SSH使用教程，阮一峰"
 [4]:https://github.com/billie66/TLCL	"《快乐的Linux命令行》"
 [5]:http://linuxcommand.org/	"The Linux Command Line"
-[6]:https://www.runoob.com/linux/linux-tutorial.html	"菜鸟Linux教程"
+[6]:https://www.runoob.com/linux/linux-tutorial.html	"菜鸟教程，Linux教程"
 [7]:https://github.com/dunwu/linux-tutorial	"dunwu/linux-tutorial"
 [8]:https://git-scm.com/	"Git官网"
-[9]:http://www.ruanyifeng.com/blog/2015/12/git-cheat-sheet.html	"Git常用命令清单，阮一峰"
+[9]:./resources/git-cheatsheet-ryf.pdf	"Git常用命令清单，阮一峰"
 [10]:https://github.com/numbbbbb/Git-Tutorial-By-liaoxuefeng	"Git入门教程，廖雪峰"
+[11]:https://git-scm.com/book/zh/v2	"Gitbook"
+
+
 
