@@ -93,8 +93,6 @@ CAT目前仅支持GPU训练，Cuda为使用NVIDIA显卡训练DNN（Deep Neural N
 
 以下介绍一些常用的解决工作中困难的方式以及网站
 
-## Links
-
 [1]:https://ubuntu.com/download/desktop	"Ubuntu官网下载"
 [2]:https://zhuanlan.zhihu.com/p/101307629	"Ubuntu双系统安装教程，知乎"
 [3]:https://github.com/wangdoc/ssh-tutorial	"SSH使用教程，阮一峰"
