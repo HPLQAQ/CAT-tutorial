@@ -90,7 +90,603 @@
 
 ## 数据预处理
 
-1. 在local目录下创建文件prepare_data.sh
+在step 1，我们完成以下步骤：获取数据，建立词典，训练语言模型。
 
+以下为step 1的代码，在本节中我们会详细解释这部分代码的思路。
+
+```shell
+if [ $stage -le 1 ] && [ $stop_stage -ge 1 ]; then
+  echo "stage 1: Data Preparation and FST Construction"
+
+  local/prepare_data.sh || exit 1; # Get data and lists
+  local/prepare_dict.sh || exit 1; # Get lexicon dict
+
+  # Compile the lexicon and token FSTs
+  # generate lexicon FST L.fst according to words.txt, generate token FST T.fst according to tokens.txt
+  ctc-crf/ctc_compile_dict_token.sh --dict-type "phn" \
+    data/dict data/local/lang_phn_tmp data/lang || exit 1;
+  
+  # Train and compile LMs. Generate G.fst according to lm, and compose FSTs into TLG.fst
+  local/yesno_train_lms.sh data/train/text data/dict/lexicon.txt data/lm || exit 1;
+  local/yesno_decode_graph.sh data/lm/srilm/srilm.o1g.kn.gz data/lang data/lang_test || exit 1;
+fi
+```
+
+### prepare_data.sh
+
+我们将数据准备的步骤集成到prepare_data.sh中，在prepare.sh完成后，我们期望获得以及划分为训练集与开发集的data（wav.scp），说话人信息（spk2utt,utt2spk，均为global），原文（text），分别存储在data/dev,data/train下，你也可以尝试自己实现这部分功能。
+
+1. 在local目录下创建文件prepare_data.sh，并获取数据
+
+   ```shell
+   #!/usr/bin/env bash
+   # This script prepares data and create necessary files
    
+   . ./path.sh
+   
+   data=${H}/data
+   local=${H}/local 
+   mkdir -p ${data}/local
+   
+   cd ${data}
+   
+   # acquire data if not downloaded
+   if [ ! -d waves_yesno ]; then
+     echo "Getting Data"
+     wget http://www.openslr.org/resources/1/waves_yesno.tar.gz || exit 1;
+     tar -xvzf waves_yesno.tar.gz || exit 1;
+     rm waves_yesno.tar.gz || exit 1;
+   fi
+   ```
+
+2. 将数据划分为训练集和开发集
+
+   注：此处直接将开发集作为测试集，可以修改
+
+   ```shell
+   echo "Preparing train and dev data"
+   
+   rm -rf train dev
+   
+   # Create waves list and Divide into dev and train set
+   waves_dir=${data}/waves_yesno
+   ls -1 $waves_dir | grep "wav" > ${data}/local/waves_all.list
+   cd ${data}/local
+   ${local}/create_yesno_waves_test_train.pl waves_all.list waves.dev waves.train
+   ```
+
+   **create_yesno_waves_test_train.pl**
+
+   注：这部分代码来源于kaldi中yesno项目
+
+   ```perl
+   #!/usr/bin/env perl
+   
+   $full_list = $ARGV[0];
+   $test_list = $ARGV[1];
+   $train_list = $ARGV[2];
+   
+   open FL, $full_list;
+   $nol = 0;
+   while ($l = <FL>)
+   {
+   	$nol++;
+   }
+   close FL;
+   
+   $i = 0;
+   open FL, $full_list;
+   open TESTLIST, ">$test_list";
+   open TRAINLIST, ">$train_list";
+   while ($l = <FL>)
+   {
+   	chomp($l);
+   	$i++;
+   	if ($i <= $nol/2 )
+   	{
+   		print TRAINLIST "$l\n";
+   	}
+   	else
+   	{
+   		print TESTLIST "$l\n";
+   	}
+   }
+   ```
+
+   等分$full_list:waves_all.list到waves.dev, waves.train
+
+3. 生成\*_wav.scp, \*.txt(\*代指train, test, dev)
+
+   ```shell
+   cd ${data}/local
+   
+   for x in train dev; do
+     # create id lists
+     ${local}/create_yesno_wav_scp.pl ${waves_dir} waves.$x > ${x}_wav.scp #id to wavfile
+     ${local}/create_yesno_txt.pl waves.$x > ${x}.txt #id to content
+   done
+   
+   ${local}/create_yesno_wav_scp.pl ${waves_dir} waves.dev > test_wav.scp #id to wavfile
+   ${local}/create_yesno_txt.pl waves.dev > test.txt #id to content
+   ```
+
+   **create_yesno_wav_scp.pl**
+
+   ```perl
+   #!/usr/bin/env perl
+   
+   $waves_dir = $ARGV[0];
+   $in_list = $ARGV[1];
+   
+   open IL, $in_list;
+   
+   while ($l = <IL>)
+   {
+   	chomp($l);
+   	$full_path = $waves_dir . "\/" . $l;
+   	$l =~ s/\.wav//;
+   	print "$l $full_path\n";
+   }
+   ```
+
+   **create_yesno_txt.pl**
+
+   ```perl
+   #!/usr/bin/env perl
+   
+   $in_list = $ARGV[0];
+   
+   open IL, $in_list;
+   
+   while ($l = <IL>)
+   {
+   	chomp($l);
+   	$l =~ s/\.wav//;
+   	$trans = $l;
+   	$trans =~ s/0/NO/g;
+   	$trans =~ s/1/YES/g;
+   	$trans =~ s/\_/ /g;
+   	print "$l $trans\n";
+   }
+   ```
+
+4. 将数据转移到data/dev, data/train, data/test下，并生成utt2spk, spk2utt
+
+   ```shell
+   for x in train dev test; do
+     # sort wave lists and create utt2spk, spk2utt
+     mkdir -p $x
+     sort local/${x}_wav.scp -o $x/wav.scp
+     sort local/$x.txt -o $x/text
+     cat $x/text | awk '{printf("%s global\n", $1);}' > $x/utt2spk
+     sort $x/utt2spk -o $x/utt2spk
+     ${H}/utils/utt2spk_to_spk2utt.pl < $x/utt2spk > $x/spk2utt
+   done
+   ```
+
+### prepare_dict.sh
+
+将词典准备的工作集成到prepare_dict.sh中。
+
+通过这部分代码，我们期待在data/dict下获得经过去重和补充噪音，未知发音等的词典lexicon.txt，排序并用数字标准的音素units.txt，以及用数字标号的词典，lexicon_numbers.txt。
+
+1. 自己准备原始词典，在input/lexicon.txt中
+
+   ```
+   <SIL> SIL
+   YES Y
+   NO N
+   ```
+
+2. 编写local/prepare_dict.sh，详见注释
+
+   ```shell
+   #!/bin/bash
+   
+   # This script prepares the phoneme-based lexicon. It also generates the list of lexicon units
+   # and represents the lexicon using the indices of the units. 
+   
+   dir=${H}/data/dict
+   mkdir -p $dir
+   srcdict=input/lexicon.txt
+   
+   . ./path.sh
+   
+   # Check if lexicon dictionary exists
+   [ ! -f "$srcdict" ] && echo "No such file $srcdict" && exit 1;
+   
+   # Raw dictionary preparation
+   # grep removes SIL, perl removes repeated lexicons
+   cat $srcdict | grep -v "SIL" | \
+     perl -e 'while(<>){@A = split; if(! $seen{$A[0]}) {$seen{$A[0]} = 1; print $_;}}' \
+     > $dir/lexicon_raw.txt || exit 1;
+   
+   # Get the set of units in the lexicon without noises
+   # cut: remove words, tr: remove spaces and lines, sort -u: sort and unique
+   cut -d ' ' -f 2- $dir/lexicon_raw.txt | tr ' ' '\n' | sort -u > $dir/units_raw.txt
+   
+   # add noises for lexicons
+   (echo '<SPOKEN_NOISE> <SPN>'; echo '<UNK> <SPN>'; echo '<NOISE> <NSN>'; ) | \
+    cat - $dir/lexicon_raw.txt | sort | uniq > $dir/lexicon.txt || exit 1;
+   
+   # add noises and number the units
+   (echo '<NSN>'; echo '<SPN>';) | cat - $dir/units_raw.txt | awk '{print $1 " " NR}' > $dir/units.txt
+   
+   # Convert phoneme sequences into the corresponding sequences of units indices, encoded by units.txt
+   utils/sym2int.pl -f 2- $dir/units.txt < $dir/lexicon.txt > $dir/lexicon_numbers.txt
+   
+   echo "Phoneme-based dictionary preparation succeeded"
+   ```
+
+### L.fst & T.fst
+
+根据发音词典，ctc需要的token\<eps>,\<blk>，生成词典(lexicon)的L.fst以及音素(token)的T.fst，此处用到我们在prepare_dict.sh中准备好的3个文件。
+
+```shell
+# Compile the lexicon and token FSTs
+# generate lexicon FST L.fst according to words.txt, generate token FST T.fst according to tokens.txt
+ctc-crf/ctc_compile_dict_token.sh --dict-type "phn" \
+  data/dict data/local/lang_phn_tmp data/lang || exit 1;
+```
+
+详见ctc-crf/ctc_compile_dict_token.sh的注释。
+
+***此处可以继续进行fst文件的可视化工作，参考[https://www.cnblogs.com/welen/p/7611320.html],[https://www.dazhuanlan.com/shitou103/topics/1489883]***
+
+### G.fst
+
+根据train/text,dict/lexicon.txt，生成语言模型的G.fst。
+
+这部分训练我们通过srilm工具完成，集成到local/yesno_train_lms.sh中。
+
+```shell
+# Train and compile LMs. Generate G.fst according to lm, and compose FSTs into TLG.fst
+    local/yesno_train_lms.sh data/train/text data/dict/lexicon.txt data/lm || exit 1;
+```
+
+**yesno_train_lms.sh**
+
+```shell
+#!/bin/bash
+
+# To be run from one directory above this script.
+
+. ./path.sh
+
+text=$1
+lexicon=$2
+dir=$3
+for f in "$text" "$lexicon"; do
+  [ ! -f $x ] && echo "$0: No such file $f" && exit 1;
+done
+
+#text=data/train/text
+#lexicon=data/dict/lexicon.txt
+#dir=data/lm
+mkdir -p $dir
+
+cleantext=$dir/text.no_oov
+
+cat $text | awk -v lex=$lexicon 'BEGIN{while((getline<lex) >0){ seen[$1]=1; } } 
+  {for(n=1; n<=NF;n++) {  if (seen[$n]) { printf("%s ", $n); } else {printf("<UNK> ");} } printf("\n");}' \
+  > $cleantext || exit 1;
+
+cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | sort | uniq -c | \
+   sort -nr > $dir/word.counts || exit 1;
+
+# Get counts from acoustic training transcripts, and add  one-count
+# for each word in the lexicon (but not silence, we don't want it
+# in the LM-- we'll add it optionally later).
+cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | \
+  cat - <(grep -w -v '!SIL' $lexicon | awk '{print $1}') | \
+   sort | uniq -c | sort -nr > $dir/unigram.counts || exit 1;
+
+# note: we probably won't really make use of <UNK> as there aren't any OOVs
+cat $dir/unigram.counts  | awk '{print $2}' | ${H}/local/get_word_map.pl "<s>" "</s>" "<UNK>" > $dir/word_map \
+   || exit 1;
+
+# note: ignore 1st field of train.txt, it's the utterance-id.
+cat $cleantext | awk -v wmap=$dir/word_map 'BEGIN{while((getline<wmap)>0)map[$1]=$2;}
+  { for(n=2;n<=NF;n++) { printf map[$n]; if(n<NF){ printf " "; } else { print ""; }}}' | gzip -c >$dir/train.gz \
+   || exit 1;
+
+# LM is small enough that we don't need to prune it (only about 0.7M N-grams).
+
+# From here is some commands to do a baseline with SRILM (assuming
+# you have it installed).
+heldout_sent=3 
+sdir=$dir/srilm
+mkdir -p $sdir
+cat $cleantext | awk '{for(n=2;n<=NF;n++){ printf $n; if(n<NF) printf " "; else print ""; }}' | \
+  head -$heldout_sent > $sdir/heldout
+cat $cleantext | awk '{for(n=2;n<=NF;n++){ printf $n; if(n<NF) printf " "; else print ""; }}' | \
+  tail -n +$heldout_sent > $sdir/train
+
+cat $dir/word_map | awk '{print $1}' | cat - <(echo "<s>"; echo "</s>" ) > $sdir/wordlist
+
+ngram-count -text $sdir/train -order 1 -limit-vocab -vocab $sdir/wordlist -unk \
+  -map-unk "<UNK>" -interpolate -lm $sdir/srilm.o1g.kn.gz
+# -kndiscount
+ngram -lm $sdir/srilm.o1g.kn.gz -ppl $sdir/heldout 
+```
+
+***此处代码待添加注释***
+
+### TLG.fst
+
+把以上生成的fst文件合成到TLG.fst中。
+
+```shell
+local/yesno_decode_graph.sh data/lm/srilm/srilm.o1g.kn.gz data/lang data/lang_test || exit 1;
+```
+
+**yesno_decode_graph.sh**
+
+```shell
+#!/bin/bash 
+#
+
+if [ -f path.sh ]; then . path.sh; fi
+
+#lm_dir=$1
+arpa_lm=$1
+src_lang=$2
+tgt_lang=$3
+
+#arpa_lm=${lm_dir}/3gram-mincount/lm_unpruned.gz
+[ ! -f $arpa_lm ] && echo No such file $arpa_lm && exit 1;
+
+rm -rf $tgt_lang
+cp -r $src_lang $tgt_lang
+
+# Compose the language model to FST
+gunzip -c "$arpa_lm" | \
+   grep -v '<s> <s>' | \
+   grep -v '</s> <s>' | \
+   grep -v '</s> </s>' | \
+   arpa2fst - | fstprint | \
+   utils/remove_oovs.pl /dev/null | \
+   utils/eps2disambig.pl | utils/s2eps.pl | fstcompile --isymbols=$tgt_lang/words.txt \
+     --osymbols=$tgt_lang/words.txt  --keep_isymbols=false --keep_osymbols=false | \
+    fstrmepsilon | fstarcsort --sort_type=ilabel > $tgt_lang/G.fst
+
+
+echo  "Checking how stochastic G is (the first of these numbers should be small):"
+fstisstochastic $tgt_lang/G.fst 
+
+# Compose the token, lexicon and language-model FST into the final decoding graph
+fsttablecompose $tgt_lang/L.fst $tgt_lang/G.fst | fstdeterminizestar --use-log=true | \
+    fstminimizeencoded | fstarcsort --sort_type=ilabel > $tgt_lang/LG.fst || exit 1;
+fsttablecompose $tgt_lang/T.fst $tgt_lang/LG.fst > $tgt_lang/TLG.fst || exit 1;
+
+echo "Composing decoding graph TLG.fst succeeded"
+rm -r $tgt_lang/LG.fst   # We don't need to keep this intermediate FST
+```
+
+到此，我们完成了样本文件的准备以及TLG.fst的生成。
+
+## 提取FBank特征
+
+第二步我们提取声音文件的特征，这一部分中我对音频进行变速并在fbank文件夹下得到提取完成的音频的FBank特征。
+
+注意在conf目录下建立fbank.conf文件，内容为：
+
+```
+--sample-frequency=8000
+--num-mel-bins=40
+```
+
+分别为音频采样率和滤波器个数，yesno数据集数据采样率为8000，滤波器个数我们取40。
+
+***关于FBank：[https://www.jianshu.com/p/b25abb28b6f8]***
+
+```shell
+if [ $stage -le 2 ] && [ $stop_stage -ge 2 ]; then
+  echo "stage 2: FBank Feature Generation"
+  #perturb the speaking speed to achieve data augmentation
+  utils/data/perturb_data_dir_speed_3way.sh data/train data/train_sp
+  utils/data/perturb_data_dir_speed_3way.sh data/dev data/dev_sp
+  
+  # Generate the fbank features; by default 40-dimensional fbanks on each frame
+  fbankdir=fbank
+  for set in train_sp dev_sp; do
+    steps/make_fbank.sh --cmd "$train_cmd" --nj 1 data/$set exp/make_fbank/$set $fbankdir || exit 1;
+    utils/fix_data_dir.sh data/$set || exit;  #filter and sort the data files
+    steps/compute_cmvn_stats.sh data/$set exp/make_fbank/$set $fbankdir || exit 1;  #achieve cmvn normalization
+  done
+
+  for set in test; do
+    steps/make_fbank.sh --cmd "$train_cmd" --nj 1 data/$set exp/make_fbank/$set $fbankdir || exit 1;
+    utils/fix_data_dir.sh data/$set || exit;  #filter and sort the data files
+    steps/compute_cmvn_stats.sh data/$set exp/make_fbank/$set $fbankdir || exit 1;  #achieve cmvn normalization
+  done
+fi
+```
+
+在提取声音文件的特征时，此处使用了将声音进行0.9 1.0 1.1三种变速的操作，在一些数据集上可以取得更好的WER，yesno上无需采用该操作，此处使用该代码作为演示。
+
+utils/data/perturb_data_dir_speed_3way.sh：变速
+
+steps/make_fbank.sh：fbank提取
+
+utils/fix_data_dir.sh：数据排序和过滤
+
+steps/compute_cmvn_stats.sh：特征正则化
+
+## 权重计算
+
+在这一部分过程中，我们先得到得到标号储存的数据文件，并通过计算基于音素的语言模型和音素得到den_lm.fst，由此和数据文件联合计算lable序列中的logp(l)。详细的步骤朱宸睿学长已经进行了注释。
+
+```shell
+
+    echo "If you want to update it, please manualif [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
+  python3 ctc-crf/prep_ctc_trans.py data/lang_phn/lexicon_numbers.txt $data_tr/text "<UNK>" > $data_tr/text_number || exit 1
+  python3 ctc-crf/prep_ctc_trans.py data/lang_phn/lexicon_numbers.txt $data_cv/text "<UNK>" > $data_cv/text_number || exit 1
+  echo "Convert text_number finished"
+
+  # Prepare denominator
+  python3 ctc-crf/prep_ctc_trans.py data/lang_phn/lexicon_numbers.txt data/train_tr95/text "<UNK>" > data/train_tr95/text_number || exit 1
+  cat data/train_tr95/text_number | sort -k 2 | uniq -f 1 > data/train_tr95/unique_text_number || exit 1
+  mkdir -p data/den_meta
+  chain-est-phone-lm ark:data/train_tr95/unique_text_number data/den_meta/phone_lm.fst || exit 1
+  python3 ctc-crf/ctc_token_fst_corrected.py den data/lang_phn/tokens.txt | fstcompile | fstarcsort --sort_type=olabel > data/den_meta/T_den.fst || exit 1
+  fstcompose data/den_meta/T_den.fst data/den_meta/phone_lm.fst > data/den_meta/den_lm.fst || exit 1
+  echo "Prepare denominator finished"
+
+  # For label sequence l, log p(l) also appears in the numerator but behaves like an constant. So log p(l) is
+  # pre-calculated based on the denominator n-gram LM and saved, and then applied in training.
+  path_weight $data_tr/text_number data/den_meta/phone_lm.fst > $data_tr/weight || exit 1
+  path_weight $data_cv/text_number data/den_meta/phone_lm.fst > $data_cv/weight || exit 1
+  echo "Prepare weight finished"
+fi
+```
+
+## 整合数据
+
+不同项目中，这部分处理差别不大，我们对数据集的的特征进行正则化并和以上计算的weights一起整合到data/pickle下。
+
+```shell
+if [ $stage -le 4 ] && [ $stop_stage -ge 4 ]; then
+  mkdir -p data/all_ark
+  
+  for set in test; do
+    eval data_$set=data/$set
+  done
+
+  for set in test cv tr; do
+    tmp_data=`eval echo '$'data_$set`
+
+    #apply CMVN feature normalization, calculate delta features, then sub-sample the input feature sequence
+    feats="ark,s,cs:apply-cmvn --norm-vars=true --utt2spk=ark:$tmp_data/utt2spk scp:$tmp_data/cmvn.scp scp:$tmp_data/feats.scp ark:- \
+    | add-deltas ark:- ark:- | subsample-feats --n=3 ark:- ark:- |"
+
+    ark_dir=$(readlink -f data/all_ark)/$set.ark
+    #copy feature files, generate scp and ark files to save features.
+    copy-feats "$feats" "ark,scp:$ark_dir,data/all_ark/$set.scp" || exit 1
+  done
+fi
+
+if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
+  mkdir -p data/pickle
+  #create a pickle file to save the feature, text_number and path weights.
+  python3 ctc-crf/convert_to.py -f=pickle -W \
+      data/all_ark/cv.scp $data_cv/text_number $data_cv/weight data/pickle/cv.pickle || exit 1
+  python3 ctc-crf/convert_to.py -f=pickle \
+      data/all_ark/tr.scp $data_tr/text_number $data_tr/weight data/pickle/tr.pickle || exit 1
+fi
+```
+
+## 训练
+
+此时训练需要的所有数据已经准备完成，剩下只需要在exp下建立你的一次训练的文件夹（例：demo），建立config.json，此处yesno我们采用：
+
+```json
+{
+    "net": {
+        "type": "BLSTM",
+        "lossfn": "crf",
+        "lamb": 0.01,
+        "kwargs": {
+            "n_layers": 3,
+            "idim": 120,
+            "hdim": 320,
+            "num_classes": 5,
+            "dropout": 0.5
+        }
+    },
+    "scheduler": {
+        "type": "SchedulerEarlyStop",
+        "optimizer": {
+            "type_optim": "Adam",
+            "kwargs": {
+                "lr": 1e-3,
+                "betas": [
+                    0.9,
+                    0.99
+                ],
+                "weight_decay": 0.0
+            }
+        },
+        "kwargs": {
+            "epoch_min": 4,
+            "lr_stop": 1e-5,
+            "reverse_metric_direc": true
+        }
+    }
+}
+```
+
+训练的代码如下：
+
+```shell
+PARENTDIR='.'
+dir="exp/demo"
+DATAPATH=$PARENTDIR/data/
+
+if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
+  unset CUDA_VISIBLE_DEVICES
+
+  if [[ $NODE == 0 && ! -f $dir/scripts.tar.gz ]]; then
+    echo ""
+    tar -zcf $dir/scripts.tar.gz $(readlink ctc-crf) $0
+  elif [ $NODE == 0 ]; then
+    echo ""
+    echo "'$dir/scripts.tar.gz' already exists."
+    echo "If you want to update it, please manually rm it then re-run this script."
+  fi
+
+  # uncomment the following line if you want to use specified GPUs
+  CUDA_VISIBLE_DEVICES="0"                      \
+  python3 ctc-crf/train.py --seed=0             \
+    --world-size 1 --rank $NODE                 \
+    --batch_size=3                              \
+    --dir=$dir                                  \
+    --config=$dir/config.json                   \
+    --data=$DATAPATH                            \
+    || exit 1
+fi
+```
+
+通过以上代码即可完成训练。
+
+训练的过程可以在你的demo目录下的monitor.jpg中找到，如果需要重新训练，删除scripts.tar.gz和ckpt文件夹即可，yesno数据集的训练可能不太稳定，如果训练集loss不下降，可以考虑重新训练。
+
+## 测试
+
+计算测试集的logits并解码。
+
+```shell
+nj=1
+if [ $stage -le 7 ] && [ $stop_stage -ge 7 ]; then
+  for set in test; do
+    ark_dir=$dir/logits/$set
+    mkdir -p $ark_dir
+    python3 ctc-crf/calculate_logits.py               \
+      --resume=$dir/ckpt/infer.pt                     \
+      --config=$dir/config.json                       \
+      --nj=$nj --input_scp=data/all_ark/$set.scp      \
+      --output_dir=$ark_dir                           \
+      || exit 1
+  done
+fi
+
+
+if [ $stage -le 8 ] && [ $stop_stage -ge 8 ]; then
+  for set in test; do
+    mkdir -p $dir/decode_${set}
+    ln -s $(readlink -f $dir/logits/$set) $dir/decode_${set}/logits
+    ctc-crf/decode.sh --stage 1 \
+        --cmd "$decode_cmd" --nj 1 --acwt 1.0 --post_decode_acwt 1.0\
+        data/lang_${set} data/${set} data/all_ark/${set}.scp $dir/decode_${set}
+  done
+fi
+
+if [ $stage -le 9 ] && [ $stop_stage -ge 9 ]; then
+  for set in test; do
+    grep WER $dir/decode_${set}/wer_* | utils/best_wer.sh
+  done
+fi
+```
+
+恭喜你已经完成了你的第一个yesno项目的搭建，训练和解码。
 
