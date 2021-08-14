@@ -139,6 +139,8 @@ fi
    fi
    ```
 
+   这一步完成后，我们在data/waves_yesno下得到原始数据，每个wav文件的标题为该文件的内容。
+
 2. 将数据划分为训练集和开发集
 
    注：此处直接将开发集作为测试集，可以修改
@@ -264,6 +266,101 @@ fi
    done
    ```
 
+   这一流程完成后，data下的目录结构为：
+
+   ```
+   |-- dev #开发集
+   |   |-- spk2utt #说话人-音频名
+   |   |-- text #音频名-文本
+   |   |-- utt2spk #音频名-说话人
+   |   `-- wav.scp #音频名-文件位置
+   |-- train #训练集
+   |   |-- spk2utt
+   |   |-- text
+   |   |-- utt2spk
+   |   `-- wav.scp
+   |-- test #测试集
+   |   |-- spk2utt
+   |   |-- text
+   |   |-- utt2spk
+   |   `-- wav.scp
+   |-- local #中间文件
+   |   |-- dev.txt #开发集的text
+   |   |-- dev_wav.scp #开发集的wav.scp
+   |   |-- test.txt
+   |   |-- test_wav.scp
+   |   |-- train.txt
+   |   |-- train_wav.scp
+   |   |-- waves.dev #开发集的文件名列表
+   |   |-- waves.train
+   |   `-- waves_all.list
+   `-- waves_yesno #数据储存位置
+   ```
+
+   以下展示train目录下的文件的部分内容：
+
+   **spk2utt**
+
+   ```
+   global 0_0_0_0_1_1_1_1 0_0_0_1_0_0_0_1 0_0_0_1_0_1_1_0 0_0_1_0_0_0_1_0 0_0_1_0_0_1_1_0 0_0_1_0_0_1_1_1 0_0_1_0_1_0_0_0 0_0_1_0_1_0_0_1 0_0_1_0_1_0_1_1 0_0_1_1_0_0_0_1 0_0_1_1_0_1_0_0 0_0_1_1_0_1_1_0 0_0_1_1_0_1_1_1 0_0_1_1_1_0_0_0 0_0_1_1_1_0_0_1 0_0_1_1_1_1_0_0 0_0_1_1_1_1_1_0 0_1_0_0_0_1_0_0 0_1_0_0_0_1_1_0 0_1_0_0_1_0_1_0 0_1_0_0_1_0_1_1 0_1_0_1_0_0_0_0 0_1_0_1_1_0_1_0 0_1_0_1_1_1_0_0 0_1_1_0_0_1_1_0 0_1_1_0_0_1_1_1 0_1_1_1_0_0_0_0 0_1_1_1_0_0_1_0 0_1_1_1_0_1_0_1 0_1_1_1_1_0_1_0
+   ```
+
+   **utt2spk**
+
+   ```
+   0_0_0_0_1_1_1_1 global
+   0_0_0_1_0_0_0_1 global
+   0_0_0_1_0_1_1_0 global
+   0_0_1_0_0_0_1_0 global
+   0_0_1_0_0_1_1_0 global
+   ...
+   ```
+
+   **wav.scp**
+
+   ```
+   0_0_0_0_1_1_1_1 /home/hpl/workspace/CAT/egs/yesno/data/waves_yesno/0_0_0_0_1_1_1_1.wav
+   0_0_0_1_0_0_0_1 /home/hpl/workspace/CAT/egs/yesno/data/waves_yesno/0_0_0_1_0_0_0_1.wav
+   0_0_0_1_0_1_1_0 /home/hpl/workspace/CAT/egs/yesno/data/waves_yesno/0_0_0_1_0_1_1_0.wav
+   0_0_1_0_0_0_1_0 /home/hpl/workspace/CAT/egs/yesno/data/waves_yesno/0_0_1_0_0_0_1_0.wav
+   ...
+   ```
+
+   **text**
+
+   ```
+   0_0_0_0_1_1_1_1 NO NO NO NO YES YES YES YES
+   0_0_0_1_0_0_0_1 NO NO NO YES NO NO NO YES
+   0_0_0_1_0_1_1_0 NO NO NO YES NO YES YES NO
+   0_0_1_0_0_0_1_0 NO NO YES NO NO NO YES NO
+   0_0_1_0_0_1_1_0 NO NO YES NO NO YES YES NO
+   ...
+   ```
+
+   通过生成这些固定格式的文件，我们可以方便地使用kaldi的工具优化工作流程。
+
+   你现在的目录结构应该是：
+
+   ```
+   |-- cmd.sh
+   |-- ctc-crf -> ../../scripts/ctc-crf
+   |-- data
+   |   |-- dev
+   |   |-- local
+   |   |-- test
+   |   |-- train
+   |   `-- waves_yesno
+   |-- local
+   |   |-- create_yesno_txt.pl
+   |   |-- create_yesno_wav_scp.pl
+   |   |-- create_yesno_waves_test_train.pl
+   |   |-- prepare_data.sh
+   |-- path.sh
+   |-- run.sh
+   |-- steps -> /home/hpl/workspace/kaldi/egs/wsj/s5/steps
+   `-- utils -> /home/hpl/workspace/kaldi/egs/wsj/s5/utils
+   ```
+
 ### prepare_dict.sh
 
 将词典准备的工作集成到prepare_dict.sh中。
@@ -317,10 +414,70 @@ fi
    
    echo "Phoneme-based dictionary preparation succeeded"
    ```
+   
+   这一脚本运行完成后，data目录下生成了一个dict文件夹：
+   
+   ```
+   |-- dict
+   |   |-- lexicon_raw.txt #原词典去重和去非语言学发音
+   |   |-- units_raw.txt #lexicon_raw词典中的所有音素去重
+   |   |-- lexicon.txt #lexicon_raw词典加入非语言学发音并排序
+   |   |-- units.txt #units_raw加入非语言学发音并排序标号
+   |   `-- lexicon_numbers.txt #用units.txt中的音素标号替代词典中的音素
+   ```
+   
+   以下展示dict中文件的部分内容：
+   
+   **lexicon_raw.txt**
+   
+   ```
+   YES Y
+   NO N
+   ```
+   
+   **units_raw.txt**
+   
+   ```
+   N
+   Y
+   ```
+   
+   **lexicon.txt**
+   
+   ```
+   <NOISE> <NSN>
+   <SPOKEN_NOISE> <SPN>
+   <UNK> <SPN>
+   NO N
+   YES Y
+   ```
+   
+   **units.txt**
+   
+   ```
+   <NSN> 1
+   <SPN> 2
+   N 3
+   Y 4
+   ```
+   
+   **lexicon_numbers.txt**
+   
+   ```
+   <NOISE> 1
+   <SPOKEN_NOISE> 2
+   <UNK> 2
+   NO 3
+   YES 4
+   ```
+   
+   在yesno数据集中并没有自然噪音和说话噪音，所以你可以修改代码去掉这部分因素。
 
 ### L.fst & T.fst
 
-根据发音词典，ctc需要的token\<eps>,\<blk>，生成词典(lexicon)的L.fst以及音素(token)的T.fst，此处用到我们在prepare_dict.sh中准备好的3个文件。
+这时，你需要对FST（Finite State Transducers 有限状态转换器）有一定的了解，安装的openfst正是为了处理这类模型。
+
+根据发音词典，ctc需要的token\<eps>,\<blk>，生成词典(lexicon)的L.fst以及音素(token)的T.fst，此处用到我们在prepare_dict.sh中准备好的lexicon.txt, units.txt, lexicon_numbers.txt这3个文件。
 
 ```shell
 # Compile the lexicon and token FSTs
@@ -332,6 +489,47 @@ ctc-crf/ctc_compile_dict_token.sh --dict-type "phn" \
 详见ctc-crf/ctc_compile_dict_token.sh的注释。
 
 ***此处可以继续进行fst文件的可视化工作，参考[https://www.cnblogs.com/welen/p/7611320.html],[https://www.dazhuanlan.com/shitou103/topics/1489883]***
+
+这一步中，脚本先通过lexicon_numbers.txt, units.txt生成了words.txt, tokens.txt，然后生成了T.fst, L.fst。
+
+**words.txt**
+
+```
+<eps> 0
+<NOISE> 1
+<SPOKEN_NOISE> 2
+<UNK> 3
+NO 4
+YES 5
+#0 6
+<s> 7
+</s> 8
+```
+
+**tokens.txt**
+
+```
+<eps> 0
+<blk> 1
+<NSN> 2
+<SPN> 3
+N 4
+Y 5
+#0 6
+#1 7
+#2 8
+#3 9
+```
+
+为了方便理解，以下通过fstprint展示我们生成的fst文件：
+
+**L.fst**
+
+![Lfst](./pictures/Lfst.png)
+
+**T.fst**
+
+![Tfst](./pictures/Tfst.png)
 
 ### G.fst
 
@@ -410,7 +608,35 @@ ngram-count -text $sdir/train -order 1 -limit-vocab -vocab $sdir/wordlist -unk \
 ngram -lm $sdir/srilm.o1g.kn.gz -ppl $sdir/heldout 
 ```
 
+取3句计算困惑度，运行结果如下：
+
+```
+file data/lm/srilm/heldout: 3 sentences, 24 words, 0 OOVs
+0 zeroprobs, logprob= -11.09502 ppl= 2.575885 ppl1= 2.899294
+```
+
 ***此处代码待添加注释***
+
+srilm工具的使用可以见工具的readme，训练中需要处理的文件储存在data/lm目录下，我们将srilm的训练结果存储在data/lm/srilm下，使用1-gram的语言模型结果储存到srilm.o1g.kn中，语言模型如下：
+
+**srilm.o1g.km**
+
+```
+
+\data\
+ngram 1=7
+
+\1-grams:
+-0.9542425	</s>
+-99	<NOISE>
+-99	<SPOKEN_NOISE>
+-99	<UNK>
+-99	<s>
+-0.3079789	NO
+-0.4014005	YES
+
+\end\
+```
 
 ### TLG.fst
 
@@ -419,6 +645,8 @@ ngram -lm $sdir/srilm.o1g.kn.gz -ppl $sdir/heldout
 ```shell
 local/yesno_decode_graph.sh data/lm/srilm/srilm.o1g.kn.gz data/lang data/lang_test || exit 1;
 ```
+
+这部分代码中，我们先将语言模型根据word.txt打包到G.fst中，因为语言模型已经足够直观，此处不再做可视化，然后用openfst合成TLG.fst用于训练。
 
 **yesno_decode_graph.sh**
 
@@ -464,6 +692,63 @@ rm -r $tgt_lang/LG.fst   # We don't need to keep this intermediate FST
 ```
 
 到此，我们完成了样本文件的准备以及TLG.fst的生成。
+
+现在你的data目录结构应该如下：
+
+```
+├── dev
+│   ├── spk2utt
+│   ├── text
+│   ├── utt2spk
+│   └── wav.scp
+├── test
+│   ...
+├── train
+│   ...
+├── dict
+│   ├── lexicon_numbers.txt
+│   ├── lexicon_raw.txt
+│   ├── lexicon.txt
+│   ├── units_raw.txt
+│   └── units.txt
+├── lang
+│   ├── lexicon_numbers.txt
+│   ├── L.fst
+│   ├── T.fst
+│   ├── tokens.txt
+│   ├── units.txt
+│   └── words.txt
+├── lang_test
+│   ├── G.fst
+│   ├── lexicon_numbers.txt
+│   ├── L.fst
+│   ├── T.fst
+│   ├── TLG.fst
+│   ├── tokens.txt
+│   ├── units.txt
+│   └── words.txt
+├── lm
+│   ├── srilm
+│   ├── text.no_oov
+│   ├── train.gz
+│   ├── unigram.counts
+│   ├── word.counts
+│   └── word_map
+├── local
+│   ├── dev.txt
+│   ├── dev_wav.scp
+│   ├── lang_phn_tmp
+│   ├── test.txt
+│   ├── test_wav.scp
+│   ├── train.txt
+│   ├── train_wav.scp
+│   ├── waves_all.list
+│   ├── waves.dev
+│   └── waves.train
+└── waves_yesno
+```
+
+请再次确认你是否理解这个目录结构中每个文件的来源和意义。
 
 ## 提取FBank特征
 
@@ -647,9 +932,9 @@ if [ $stage -le 6 ] && [ $stop_stage -ge 6 ]; then
 fi
 ```
 
-通过以上代码即可完成训练。
+通过以上代码即可完成训练，训练的过程可以在你的demo目录下的monitor.jpg中找到。
 
-训练的过程可以在你的demo目录下的monitor.jpg中找到，如果需要重新训练，删除scripts.tar.gz和ckpt文件夹即可，yesno数据集的训练可能不太稳定，如果训练集loss不下降，可以考虑重新训练。
+如果需要重新训练，删除scripts.tar.gz和ckpt文件夹即可，yesno数据集的训练可能不太稳定，如果训练集loss不下降，可以考虑重新训练。
 
 ## 测试
 
@@ -690,3 +975,43 @@ fi
 
 恭喜你已经完成了你的第一个yesno项目的搭建，训练和解码。
 
+现在你的目录结构应该如下图所示：
+
+```
+├── cmd.sh
+├── conf
+│   ├── decode_dnn.config
+│   ├── fbank.conf
+│   └── mfcc.conf
+├── ctc-crf -> ../../scripts/ctc-crf
+├── exp
+│   └── demo
+├── input
+│   └── lexicon.txt
+├── local
+│   ├── create_yesno_txt.pl
+│   ├── create_yesno_waves_test_train.pl
+│   ├── create_yesno_wav_scp.pl
+│   ├── get_word_map.pl
+│   ├── prepare_data.sh
+│   ├── prepare_dict.sh
+│   ├── score.sh
+│   ├── yesno_decode_graph.sh
+│   └── yesno_train_lms.sh
+├── path.sh
+├── run.sh
+├── steps -> /home/hpl/workspace/kaldi/egs/wsj/s5/steps
+└── utils -> /home/hpl/workspace/kaldi/egs/wsj/s5/utils
+```
+
+以下是其中一次训练的结果展示：
+
+![yesno_monitor_eg](/home/hpl/workspace/CAT-tutorial/pictures/yesno_monitor_eg.png)
+
+识别的结果如下：
+
+```
+%WER 5.00 [ 12 / 240, 0 ins, 9 del, 3 sub ] 
+```
+
+识别的详细log在exp/demo/decode_test中。
