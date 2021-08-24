@@ -21,7 +21,7 @@ Decoding done.
 
 说明你的环境配置成功了。
 
-[yesno项目][https://github.com/HPLQAQ/CAT/tree/dev/egs/yesno]
+[yesno项目](https://github.com/HPLQAQ/CAT/tree/dev/egs/yesno)
 
 ## 第一个CAT项目
 
