@@ -125,6 +125,8 @@
      #more stages
    fi
    ```
+   
+   $NODE指实验运行的节点数，若运行run.sh时直接传参节点数，则进入多节点联合训练的环节；否则先进行数据准备，用stage和stop_stage控制运行的代码部分。
 
 ## 数据预处理
 
@@ -203,6 +205,8 @@ fi
 
    注：这部分代码来源于kaldi中yesno项目
 
+   .pl为perl代码，代码特点为简洁高效，文本处理方便，缺点为较难懂。
+
    ```perl
    #!/usr/bin/env perl
    
@@ -256,6 +260,8 @@ fi
 
    **create_yesno_wav_scp.pl**
 
+   创建*.scp文件，内容为文件名对应的存储位置。
+
    ```perl
    #!/usr/bin/env perl
    
@@ -274,6 +280,8 @@ fi
    ```
 
    **create_yesno_txt.pl**
+
+   创建.txt文件，内容为文件名对应的语句内容。
 
    ```perl
    #!/usr/bin/env perl
@@ -308,47 +316,53 @@ fi
    done
    ```
 
-   这一流程完成后，data下的目录结构为：
+   utils和step目录下的脚本均为kaldi的脚本，在代码目录下打开有详细注释。
 
+   这一流程完成后，data下的目录结构为：
+   
    ```
-   |-- dev #开发集
-   |   |-- spk2utt #说话人-音频名
-   |   |-- text #音频名-文本
-   |   |-- utt2spk #音频名-说话人
-   |   `-- wav.scp #音频名-文件位置
-   |-- train #训练集
-   |   |-- spk2utt
-   |   |-- text
-   |   |-- utt2spk
-   |   `-- wav.scp
-   |-- test #测试集
-   |   |-- spk2utt
-   |   |-- text
-   |   |-- utt2spk
-   |   `-- wav.scp
-   |-- local #中间文件
-   |   |-- dev.txt #开发集的text
-   |   |-- dev_wav.scp #开发集的wav.scp
-   |   |-- test.txt
-   |   |-- test_wav.scp
-   |   |-- train.txt
-   |   |-- train_wav.scp
-   |   |-- waves.dev #开发集的文件名列表
-   |   |-- waves.train
-   |   `-- waves_all.list
-   `-- waves_yesno #数据储存位置
+   ├── dev #开发集
+   │   ├── spk2utt #说话人-音频名
+   │   ├── text #音频名-文本
+   │   ├── utt2spk #音频名-说话人
+   │   └── wav.scp #音频名-文件位置
+   ├── train #训练集
+   │   ├── spk2utt
+   │   ├── text
+   │   ├── utt2spk
+   │   └── wav.scp
+   ├── test #测试集
+   │   ├── spk2utt
+   │   ├── text
+   │   ├── utt2spk
+   │   └── wav.scp
+   ├── local #中间文件
+   │   ├── dev.txt #开发集的text
+   │   ├── dev_wav.scp #开发集的wav.scp
+   │   ├── test.txt
+   │   ├── test_wav.scp
+   │   ├── train.txt
+   │   ├── train_wav.scp
+   │   ├── waves.dev #开发集的文件名列表
+   │   ├── waves.train
+   │   └── waves_all.list
+   └── waves_yesno #数据储存位置
    ```
 
    以下展示train目录下的文件的部分内容：
 
    **spk2utt**
+   
+   [speaker] [wav_name1] [wav_name2] ...
 
    ```
    global 0_0_0_0_1_1_1_1 0_0_0_1_0_0_0_1 0_0_0_1_0_1_1_0 0_0_1_0_0_0_1_0 0_0_1_0_0_1_1_0 0_0_1_0_0_1_1_1 0_0_1_0_1_0_0_0 0_0_1_0_1_0_0_1 0_0_1_0_1_0_1_1 0_0_1_1_0_0_0_1 0_0_1_1_0_1_0_0 0_0_1_1_0_1_1_0 0_0_1_1_0_1_1_1 0_0_1_1_1_0_0_0 0_0_1_1_1_0_0_1 0_0_1_1_1_1_0_0 0_0_1_1_1_1_1_0 0_1_0_0_0_1_0_0 0_1_0_0_0_1_1_0 0_1_0_0_1_0_1_0 0_1_0_0_1_0_1_1 0_1_0_1_0_0_0_0 0_1_0_1_1_0_1_0 0_1_0_1_1_1_0_0 0_1_1_0_0_1_1_0 0_1_1_0_0_1_1_1 0_1_1_1_0_0_0_0 0_1_1_1_0_0_1_0 0_1_1_1_0_1_0_1 0_1_1_1_1_0_1_0
    ```
-
+   
    **utt2spk**
-
+   
+   [wav_name] [speaker]
+   
    ```
    0_0_0_0_1_1_1_1 global
    0_0_0_1_0_0_0_1 global
@@ -357,8 +371,10 @@ fi
    0_0_1_0_0_1_1_0 global
    ...
    ```
-
+   
    **wav.scp**
+   
+   [wav_name] [wav_location]
 
    ```
    0_0_0_0_1_1_1_1 /home/hpl/workspace/CAT/egs/yesno/data/waves_yesno/0_0_0_0_1_1_1_1.wav
@@ -367,9 +383,11 @@ fi
    0_0_1_0_0_0_1_0 /home/hpl/workspace/CAT/egs/yesno/data/waves_yesno/0_0_1_0_0_0_1_0.wav
    ...
    ```
-
+   
    **text**
-
+   
+   [wav_name] [wav_content]
+   
    ```
    0_0_0_0_1_1_1_1 NO NO NO NO YES YES YES YES
    0_0_0_1_0_0_0_1 NO NO NO YES NO NO NO YES
@@ -378,29 +396,29 @@ fi
    0_0_1_0_0_1_1_0 NO NO YES NO NO YES YES NO
    ...
    ```
-
+   
    通过生成这些固定格式的文件，我们可以方便地使用kaldi的工具优化工作流程。
-
+   
    你现在的目录结构应该是：
-
+   
    ```
-   |-- cmd.sh
-   |-- ctc-crf -> ../../scripts/ctc-crf
-   |-- data
-   |   |-- dev
-   |   |-- local
-   |   |-- test
-   |   |-- train
-   |   `-- waves_yesno
-   |-- local
-   |   |-- create_yesno_txt.pl
-   |   |-- create_yesno_wav_scp.pl
-   |   |-- create_yesno_waves_test_train.pl
-   |   |-- prepare_data.sh
-   |-- path.sh
-   |-- run.sh
-   |-- steps -> /home/hpl/workspace/kaldi/egs/wsj/s5/steps
-   `-- utils -> /home/hpl/workspace/kaldi/egs/wsj/s5/utils
+   ├── cmd.sh
+   ├── ctc-crf -> ../../scripts/ctc-crf
+   ├── data
+   │   ├── dev
+   │   ├── local
+   │   ├── test
+   │   ├── train
+   │   └── waves_yesno
+   ├── local
+   │   ├── create_yesno_txt.pl
+   │   ├── create_yesno_wav_scp.pl
+   │   ├── create_yesno_waves_test_train.pl
+   │   └── prepare_data.sh
+   ├── path.sh
+   ├── run.sh
+   ├── steps -> /home/hpl/workspace/kaldi/egs/wsj/s5/steps
+   └── utils -> /home/hpl/workspace/kaldi/egs/wsj/s5/utils
    ```
 
 ### prepare_dict.sh
@@ -460,32 +478,36 @@ fi
    这一脚本运行完成后，data目录下生成了一个dict文件夹：
 
    ```
-   |-- dict
-   |   |-- lexicon_raw.txt #原词典去重和去非语言学发音
-   |   |-- units_raw.txt #lexicon_raw词典中的所有音素去重
-   |   |-- lexicon.txt #lexicon_raw词典加入非语言学发音并排序
-   |   |-- units.txt #units_raw加入非语言学发音并排序标号
-   |   `-- lexicon_numbers.txt #用units.txt中的音素标号替代词典中的音素
+   ├── dict
+   │   ├── lexicon_raw.txt #原词典去重和去非语言学发音
+   │   ├── units_raw.txt #lexicon_raw词典中的所有音素去重
+   │   ├── lexicon.txt #lexicon_raw词典加入非语言学发音并排序
+   │   ├── units.txt #units_raw加入非语言学发音并排序标号
+   │   └── lexicon_numbers.txt #用units.txt中的音素标号替代词典中的音素
    ```
 
    以下展示dict中文件的部分内容：
 
    **lexicon_raw.txt**
 
+   [word] [unit1] [unit2] ...
+   
    ```
    YES Y
    NO N
    ```
 
    **units_raw.txt**
-
+   
+   [unit]
+   
    ```
    N
    Y
    ```
-
+   
    **lexicon.txt**
-
+   
    ```
    <NOISE> <NSN> #自然噪音
    <SPOKEN_NOISE> <SPN> #说话噪音
@@ -493,17 +515,21 @@ fi
    NO N
    YES Y
    ```
-
+   
    **units.txt**
-
+   
+   [unit] [unit_number]
+   
    ```
    <NSN> 1
    <SPN> 2
    N 3
    Y 4
    ```
-
+   
    **lexicon_numbers.txt**
+   
+   [word] [unit_number1] [unit_number2] ...
 
    ```
    <NOISE> 1
@@ -512,10 +538,10 @@ fi
    NO 3
    YES 4
    ```
-
+   
    在yesno数据集中并没有自然噪音和说话噪音，所以你可以修改代码去掉这部分因素，此处加入以便普适性说明。
 
-### L.fst & T.fst
+### T.fst & L.fst
 
 这时，你需要对FST（Finite State Transducers 有限状态转换器）有一定的了解，安装的openfst正是为了处理这类模型。
 
@@ -537,16 +563,18 @@ ctc-crf/ctc_compile_dict_token.sh --dict-type "phn" \
 **words.txt**
 
 ```
-<eps> 0 #epsilon
+<eps> 0 #epsilon，空标签，代表跳转输出标签为空
 <NOISE> 1
 <SPOKEN_NOISE> 2
 <UNK> 3
 NO 4
 YES 5
-#0 6 #语言模型G的回退符，用于eps删除后的消歧
+#0 6 #语言模型G的回退符，用于跳转后的确定化
 <s> 7 #起始
 </s> 8 #结束
 ```
+
+确定化是指，对于一个fst图，任意输入序列只对应唯一跳转，消歧符号帮助我们确保我们的WFST是确定化的，进一步了解推荐阅读《Kaldi语音识别实战》（作者：陈果果）第五章。
 
 **tokens.txt**
 
@@ -557,7 +585,7 @@ YES 5
 <SPN> 3
 N 4
 Y 5
-#0 6
+#0 6 #G.fst回退符
 #1 7 #注：#1,#2为对<SPOKEN_NOISE>和<UNK>的消歧
 #2 8
 #3 9 #sil的消歧
@@ -565,13 +593,45 @@ Y 5
 
 为了方便理解，以下通过fstprint展示我们生成的fst文件：
 
+**T.fst**
+
+![Tfst](./pictures/Tfst.png)
+
 **L.fst**
 
 ![Lfst](./pictures/Lfst.png)
 
+为了便于对比理解，我们去掉\<NOISE\>,  \<SPOKEN_NOISE\>再看一下生成的fst图，此时：
+
+**words.txt**
+
+```
+<eps> 0
+NO 1
+YES 2
+#0 3
+<s> 4
+</s> 5
+```
+
+**tokens.txt**
+
+```
+<eps> 0
+<blk> 1
+N 2
+Y 3
+#0 4
+#1 5
+```
+
 **T.fst**
 
-![Tfst](./pictures/Tfst.png)
+![Tfst0](./pictures/Tfst0.png)
+
+**L.fst**
+
+![Lfst0](./pictures/Lfst0.png)
 
 ### G.fst
 
@@ -607,10 +667,12 @@ mkdir -p $dir
 
 cleantext=$dir/text.no_oov
 
+# Replace unknown words in text by <UNK>
 cat $text | awk -v lex=$lexicon 'BEGIN{while((getline<lex) >0){ seen[$1]=1; } } 
   {for(n=1; n<=NF;n++) {  if (seen[$n]) { printf("%s ", $n); } else {printf("<UNK> ");} } printf("\n");}' \
   > $cleantext || exit 1;
 
+# Count unique words
 cat $cleantext | awk '{for(n=2;n<=NF;n++) print $n; }' | sort | uniq -c | \
    sort -nr > $dir/word.counts || exit 1;
 
@@ -662,7 +724,6 @@ srilm工具的使用可以见工具的readme，训练中需要处理的文件储
 **srilm.o1g.km**
 
 ```
-
 \data\
 ngram 1=7
 
@@ -678,6 +739,12 @@ ngram 1=7
 \end\
 ```
 
+使用n-gram作为语言模型时，习惯上用以上的arpa格式表示，以上[value] [word]的形式意义为logP(word)=value，画图如下：
+
+**G.fst**
+
+![Gfst](./pictures/G.png)
+
 ### TLG.fst
 
 把以上生成的fst文件合成到TLG.fst中。
@@ -686,7 +753,7 @@ ngram 1=7
 local/yesno_decode_graph.sh data/lm/srilm/srilm.o1g.kn.gz data/lang data/lang_test || exit 1;
 ```
 
-这部分代码中，我们先将语言模型根据word.txt打包到G.fst中，因为语言模型已经足够直观，此处不再做可视化，然后用openfst合成TLG.fst用于训练。
+这部分代码中，我们先将语言模型根据word.txt打包到G.fst中，因为arpa格式的语言模型已经足够直观，此处不再做可视化，然后用openfst合成TLG.fst用于训练。
 
 **yesno_decode_graph.sh**
 
@@ -731,7 +798,9 @@ echo "Composing decoding graph TLG.fst succeeded"
 rm -r $tgt_lang/LG.fst   # We don't need to keep this intermediate FST
 ```
 
-到此，我们完成了样本文件的准备以及TLG.fst的生成。
+到此，我们完成了样本文件的准备以及TLG.fst的生成，TLG.fst画图如下：
+
+![TLGfst](./pictures/TLG.png)
 
 现在你的data目录结构应该如下：
 
@@ -846,29 +915,36 @@ steps/compute_cmvn_stats.sh：特征正则化
 
 workflow: [Denominator LM preparation](https://github.com/thu-spmi/CAT/blob/master/toolkitworkflow.md#Denominator-LM-preparation)
 
-在这一部分过程中，我们先得到得到标号储存的数据文件，并通过计算基于音素的语言模型和音素得到den_lm.fst，由此和数据文件联合计算lable序列中的logp(l)。详细的步骤朱宸睿学长已经进行了注释。
+在这一部分过程中，我们先得到得到标号储存的数据文件，并通过计算基于音素的语言模型和音素得到den_lm.fst，由此和数据文件联合计算lable序列中的logp(l)。详细的步骤内容见注释。
 
 ```shell
+data_tr=data/train_sp
+data_cv=data/dev_sp
 
-    echo "If you want to update it, please manualif [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
-  python3 ctc-crf/prep_ctc_trans.py data/lang_phn/lexicon_numbers.txt $data_tr/text "<UNK>" > $data_tr/text_number || exit 1
-  python3 ctc-crf/prep_ctc_trans.py data/lang_phn/lexicon_numbers.txt $data_cv/text "<UNK>" > $data_cv/text_number || exit 1
-  echo "Convert text_number finished"
+if [ $stage -le 3 ] && [ $stop_stage -ge 3 ]; then
+  #convert word sequences to label sequences according to lexicon_numbers.txt and text files in data/lang_phn
+  #the result will be placed in $data_tr/ and $data_cv/
+  ctc-crf/prep_ctc_trans.py data/lang/lexicon_numbers.txt $data_tr/text "<UNK>" > $data_tr/text_number
+  ctc-crf/prep_ctc_trans.py data/lang/lexicon_numbers.txt $data_cv/text "<UNK>" > $data_cv/text_number
+  echo "convert text_number finished"
 
-  # Prepare denominator
-  python3 ctc-crf/prep_ctc_trans.py data/lang_phn/lexicon_numbers.txt data/train_tr95/text "<UNK>" > data/train_tr95/text_number || exit 1
-  cat data/train_tr95/text_number | sort -k 2 | uniq -f 1 > data/train_tr95/unique_text_number || exit 1
+  # prepare denominator
+  ctc-crf/prep_ctc_trans.py data/lang/lexicon_numbers.txt data/train/text "<UNK>" > data/train/text_number
+  #sort the text_number file, and then remove the duplicate lines
+  cat data/train/text_number | sort -k 2 | uniq -f 1 > data/train/unique_text_number
   mkdir -p data/den_meta
-  chain-est-phone-lm ark:data/train_tr95/unique_text_number data/den_meta/phone_lm.fst || exit 1
-  python3 ctc-crf/ctc_token_fst_corrected.py den data/lang_phn/tokens.txt | fstcompile | fstarcsort --sort_type=olabel > data/den_meta/T_den.fst || exit 1
-  fstcompose data/den_meta/T_den.fst data/den_meta/phone_lm.fst > data/den_meta/den_lm.fst || exit 1
-  echo "Prepare denominator finished"
-
-  # For label sequence l, log p(l) also appears in the numerator but behaves like an constant. So log p(l) is
-  # pre-calculated based on the denominator n-gram LM and saved, and then applied in training.
-  path_weight $data_tr/text_number data/den_meta/phone_lm.fst > $data_tr/weight || exit 1
-  path_weight $data_cv/text_number data/den_meta/phone_lm.fst > $data_cv/weight || exit 1
-  echo "Prepare weight finished"
+  #generate phone_lm.fst, a phone-based language model
+  chain-est-phone-lm ark:data/train/unique_text_number data/den_meta/phone_lm.fst
+  #generate the correct T.fst, called T_den.fst
+  ctc-crf/ctc_token_fst_corrected.py den data/lang/tokens.txt | fstcompile | fstarcsort --sort_type=olabel > data/den_meta/T_den.fst
+  #compose T_den.fst and phone_lm.fst into den_lm.fst
+  fstcompose data/den_meta/T_den.fst data/den_meta/phone_lm.fst > data/den_meta/den_lm.fst
+  echo "prepare denominator finished"
+  
+  #calculate and save the weight for each label sequence based on text_number and phone_lm.fst
+  path_weight $data_tr/text_number data/den_meta/phone_lm.fst > $data_tr/weight
+  path_weight $data_cv/text_number data/den_meta/phone_lm.fst > $data_cv/weight
+  echo "prepare weight finished"
 fi
 ```
 
@@ -908,6 +984,8 @@ if [ $stage -le 5 ] && [ $stop_stage -ge 5 ]; then
       data/all_ark/tr.scp $data_tr/text_number $data_tr/weight data/pickle/tr.pickle || exit 1
 fi
 ```
+
+在stage5结束后，用fi结束最开始```if [ $NODE == 0 ]; then```的大括号，进入到训练部分。
 
 ## 训练
 
@@ -1058,7 +1136,7 @@ fi
 
 以下是其中一次训练的结果展示：
 
-![yesno_monitor_eg](/home/hpl/workspace/CAT-tutorial/pictures/yesno_monitor_eg.png)
+![yesno_monitor_eg](./pictures/yesno_monitor_eg.png)
 
 识别的结果如下：
 
